@@ -1,3 +1,4 @@
+import random
 from pydantic import BaseModel, EmailStr, validator
 
 
@@ -22,6 +23,10 @@ class UserModel(BaseModel):
 
     class Config:
         from_attributes = True
+
+    def generate_code(self):
+        code = "".join([str(random.randint(0, 100) % 10) for _ in range(5)])
+        return code
 
 
 class PostModel(BaseModel):
