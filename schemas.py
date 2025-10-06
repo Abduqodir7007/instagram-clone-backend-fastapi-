@@ -5,7 +5,6 @@ from pydantic import BaseModel, EmailStr, validator
 class UserModel(BaseModel):
     username: str
     email: EmailStr
-    phone_number: str | None = None
     photo: str | None = None
     password: str
 
@@ -15,18 +14,11 @@ class UserModel(BaseModel):
             raise ValueError("Password must contain at least one special character")
         return value
 
-    @validator("phone_number")
-    def check_phone_number(cls, value: str):
-        if not 9 <= len(value) <= 13 or not value.isdigit():
-            raise ValueError("Wrong phone number")
-        return value
 
     class Config:
         from_attributes = True
 
-    def generate_code(self):
-        code = "".join([str(random.randint(0, 100) % 10) for _ in range(5)])
-        return code
+
 
 
 class PostModel(BaseModel):
