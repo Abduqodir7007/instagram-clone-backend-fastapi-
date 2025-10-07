@@ -1,7 +1,8 @@
+from datetime import datetime
 from fastapi import APIRouter, HTTPException, status, Depends
 from database import session, engine
-from schemas import UserModel
-from models import User
+from schemas import UserModel, CodeModel
+from models import User, VerifyEmail
 from werkzeug.security import generate_password_hash, check_password_hash
 from config import mail_config
 from fastapi_jwt_auth import AuthJWT
@@ -43,10 +44,13 @@ async def register(user: UserModel, background_tasks: BackgroundTasks):
     new_user = User(**user.dict())
     new_user.password = generate_password_hash(user.password)
     code = new_user.generate_code()
+    access_token = new_user.create_access_token(user.email)
+    refresh_token = new_user.create_refresh_token(user.email)
+    data = {"access_token": access_token, "refresh_token": refresh_token}
     background_tasks.add_task(send_email, user.email, int(code))
     session.add(new_user)
     session.commit()
-    return {"message": "User registered successfully"}
+    return {"message": "User registered successfully", "tokens": data}
 
 
 @auth_routes.post("/list")
@@ -67,3 +71,42 @@ def delete_user(user_id: int, Authorize: AuthJWT = Depends()):
     session.delete(user)
     session.commit()
     return {"message": "User deleted successfully"}
+
+
+def check_code(code: int, user: User):
+    verify_code = user.codes.filter(
+        or_(
+            VerifyEmail.code == code,
+            VerifyEmail.is_confirmed == False,
+            VerifyEmail.expiration_time > datetime.now(),
+        )
+    ).first()
+    if verify_code is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Code is expired"
+        )
+    return True
+
+
+@auth_routes.post("/verify")
+async def verify_email(code: CodeModel, Authorize: AuthJWT = Depends()):
+    try:
+        Authorize.jwt_required()
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="You are not authrized"
+        )
+    email = Authorize.get_jwt_subject()
+    db_user = session.query(User).filter(User.email == email).first()
+
+    if not db_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
+
+    check_code(code.code, db_user)
+    access_token = db_user.create_access_token(db_user.email)
+    refresh_token = db_user.create_refresh_token(db_user.email)
+    data = {"access_token": access_token, "refresh_token": refresh_token}
+
+    return {"message": "Email verified successfully", "tokens": data}

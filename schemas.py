@@ -56,3 +56,9 @@ class CommentLikeModel(BaseModel):
 
     class Config:
         from_attributes = True
+
+class CodeModel(BaseModel):
+    code: int
+
+    class Config:
+        from_attributes = True
