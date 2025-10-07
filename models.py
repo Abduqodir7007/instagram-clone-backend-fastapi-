@@ -88,3 +88,4 @@ class CommentLike(Base):
     comment_id = Column(Integer, ForeignKey("post_comments.id"))
     author = relationship(User)
     comment = relationship(PostComment, back_populates="likes")
+
