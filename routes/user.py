@@ -41,7 +41,7 @@ async def register(user: UserModel, background_tasks: BackgroundTasks):
             status_code=status.HTTP_409_CONFLICT, detail="User already exists"
         )
 
-    new_user = User(**user.dict())
+    new_user = User(**user.model_dump())
     new_user.password = generate_password_hash(user.password)
     code = new_user.generate_code()
     access_token = new_user.create_access_token(user.email)
