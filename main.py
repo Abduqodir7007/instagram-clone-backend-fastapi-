@@ -3,9 +3,10 @@ from config import Settings
 from fastapi_jwt_auth import AuthJWT
 from routes.user import auth_routes
 from routes.post import post_routes
+from fastapi.security import HTTPBearer
 
 app = FastAPI()
-
+bearer_scheme = HTTPBearer()
 
 @AuthJWT.load_config
 def get_config():

@@ -1,5 +1,5 @@
 import random
-from pydantic import BaseModel, EmailStr, validator
+from pydantic import BaseModel, EmailStr, field_validator
 
 
 class UserModel(BaseModel):
@@ -8,7 +8,7 @@ class UserModel(BaseModel):
     photo: str | None = None
     password: str
 
-    @validator("password")
+    @field_validator("password")
     def check_password(cls, value: str):
         if value.isdigit():
             raise ValueError("Password must contain at least one special character")
@@ -17,12 +17,25 @@ class UserModel(BaseModel):
 
     class Config:
         from_attributes = True
+        
+class UserLoginModel(BaseModel):
+    email: EmailStr
+    password: str
 
+    class Config:
+        from_attributes = True
+class UserResponseModel(BaseModel):
+    id: int
+    username: str
+    email: EmailStr
+    photo: str | None = None
+
+    class Config:
+        from_attributes = True
 
 
 
 class PostModel(BaseModel):
-
     author_id: int
     caption: str
 
@@ -33,9 +46,8 @@ class PostModel(BaseModel):
 class PostCommentModel(BaseModel):
 
     author_id: int
-    post_id: int
+    parent_id: int | None = None
     comment: str
-
     class Config:
         from_attributes = True
 

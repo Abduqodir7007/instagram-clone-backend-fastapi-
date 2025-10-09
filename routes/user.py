@@ -1,7 +1,8 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi.encoders import jsonable_encoder
 from database import session, engine
-from schemas import UserModel, CodeModel
+from schemas import UserModel, CodeModel, UserResponseModel, UserLoginModel
 from models import User, VerifyEmail
 from werkzeug.security import generate_password_hash, check_password_hash
 from config import mail_config
@@ -27,8 +28,11 @@ async def send_email(to: str, code: int):
 
 
 @auth_routes.post("/register")
-async def register(user: UserModel, background_tasks: BackgroundTasks):
-
+async def register(
+    user: UserModel, background_tasks: BackgroundTasks, Authorize: AuthJWT = Depends()
+):
+    access_lifetime = timedelta(days=3)
+    refresh_lifetime = timedelta(days=5)
     db_user = (
         session.query(User)
         .filter(
@@ -44,8 +48,12 @@ async def register(user: UserModel, background_tasks: BackgroundTasks):
     new_user = User(**user.model_dump())
     new_user.password = generate_password_hash(user.password)
     code = new_user.generate_code()
-    access_token = new_user.create_access_token(user.email)
-    refresh_token = new_user.create_refresh_token(user.email)
+    access_token = Authorize.create_access_token(
+        user.email, expires_time=access_lifetime
+    )
+    refresh_token = Authorize.create_refresh_token(
+        user.email, expires_time=refresh_lifetime
+    )
     data = {"access_token": access_token, "refresh_token": refresh_token}
     background_tasks.add_task(send_email, user.email, int(code))
     session.add(new_user)
@@ -54,7 +62,7 @@ async def register(user: UserModel, background_tasks: BackgroundTasks):
 
 
 @auth_routes.post("/list")
-def list_users(Authorize: AuthJWT = Depends()):
+def list_users(Authorize: AuthJWT = Depends(), response_model=UserResponseModel):
 
     users = session.query(User).all()
     return users
@@ -110,3 +118,24 @@ async def verify_email(code: CodeModel, Authorize: AuthJWT = Depends()):
     data = {"access_token": access_token, "refresh_token": refresh_token}
 
     return {"message": "Email verified successfully", "tokens": data}
+
+
+@auth_routes.post("/login")
+async def login(user: UserLoginModel, Authorize: AuthJWT = Depends()):
+    access_lifetime = timedelta(days=3)
+    refresh_lifetime = timedelta(days=5)
+
+    db_user = session.query(User).filter(User.email == user.email).first()
+
+    if db_user and check_password_hash(db_user.password, user.password):
+        access_token = Authorize.create_access_token(
+            db_user.email, expires_time=access_lifetime
+        )
+        refresh_token = Authorize.create_refresh_token(
+            db_user.email, expires_time=refresh_lifetime
+        )
+        response = {"access": access_token, "refresh": refresh_token}
+
+        return jsonable_encoder(response)
+
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
