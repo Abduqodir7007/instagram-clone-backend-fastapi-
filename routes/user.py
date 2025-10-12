@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from fastapi import APIRouter, HTTPException, status, Depends
 from fastapi.encoders import jsonable_encoder
-from database import session, engine
+from database import SessionLocal, engine
 from schemas import UserModel, CodeModel, UserResponseModel, UserLoginModel
 from models import User, VerifyEmail
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -11,7 +11,7 @@ from sqlalchemy import or_
 from fastapi_mail import FastMail, MessageSchema, MessageType
 from fastapi import BackgroundTasks
 
-session = session(bind=engine)
+session = SessionLocal()
 
 auth_routes = APIRouter(prefix="/auth")
 

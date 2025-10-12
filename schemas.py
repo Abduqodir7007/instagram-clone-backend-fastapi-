@@ -1,4 +1,3 @@
-import random
 from pydantic import BaseModel, EmailStr, field_validator
 from models import User, CommentLike
 
@@ -65,7 +64,6 @@ class PostCommentModel(BaseModel):
 class PostLikeModel(BaseModel):
 
     author_id: int
-    post_id: int
 
     class Config:
         from_attributes = True

@@ -1,13 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.encoders import jsonable_encoder
-from database import session, engine
-from schemas import PostModel, PostCommentModel, PostResponseModel
+from database import SessionLocal
+from schemas import PostModel, PostCommentModel, PostResponseModel, PostLikeModel
 from fastapi_jwt_auth import AuthJWT
 from models import Post, PostComment, PostLike, bearer_scheme
 from sqlalchemy import func
 from sqlalchemy.orm import selectinload
 
-session = session(bind=engine)
+
+session = SessionLocal()
 post_routes = APIRouter(prefix="/post")
 
 
@@ -27,6 +28,7 @@ async def create_post(post: PostModel, Authorize: AuthJWT = Depends()):
     new_post = Post(**post.model_dump())
     session.add(new_post)
     session.commit()
+    session.refresh(new_post)
 
     data = {
         "id": new_post.id,
@@ -88,3 +90,22 @@ async def create_comment(
     session.commit()
 
     return {"message": "Comment added successfully", "comment": new_comment}
+
+
+@post_routes.post("/{post_id}/create-delete-like")
+async def create_delete_like(
+    post_id: int, post: PostLikeModel, Authorize: AuthJWT = Depends()
+):
+    try:
+        Authorize.jwt_required()
+    except Exception as e:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    post_like = session.query(PostLike).filter(PostLike.post_id == post_id).first()
+    if post_like is None:
+        new_post_like = PostLike(**post.model_dump(), post_id=post_id)
+        session.add(new_post_like)
+        session.commit()
+        
+    session.delete(post_like)
+    session.commit()

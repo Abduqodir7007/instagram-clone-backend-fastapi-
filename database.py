@@ -9,6 +9,6 @@ DATABASE_URL = f"postgresql://{os.getenv("POSTGRES_USER")}:{os.getenv('POSTGRES_
 
 engine = create_engine(DATABASE_URL)
 
-session = sessionmaker(bind=engine)
+SessionLocal = sessionmaker(bind=engine)
 
 Base = declarative_base()
