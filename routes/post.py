@@ -3,7 +3,7 @@ from fastapi.encoders import jsonable_encoder
 from database import SessionLocal
 from schemas import PostModel, PostCommentModel, PostResponseModel, PostLikeModel
 from fastapi_jwt_auth import AuthJWT
-from models import Post, PostComment, PostLike, bearer_scheme
+from models import Post, PostComment, PostLike, User, CommentLike, bearer_scheme
 from sqlalchemy import func
 from sqlalchemy.orm import selectinload
 
@@ -91,21 +91,67 @@ async def create_comment(
 
     return {"message": "Comment added successfully", "comment": new_comment}
 
-
-@post_routes.post("/{post_id}/create-delete-like")
-async def create_delete_like(
-    post_id: int, post: PostLikeModel, Authorize: AuthJWT = Depends()
-):
+@post_routes.get("/{post_id}/comments", status_code=status.HTTP_200_OK)
+async def get_comments(post_id: int, Authorize: AuthJWT = Depends()):
     try:
         Authorize.jwt_required()
     except Exception as e:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
+    post = session.query(Post).filter(Post.id == post_id).first()
+    
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    
+    comments = session.query(PostComment).filter(PostComment.post_id == post_id).all()
+    print(comments)
+    return {"comments": comments}
+
+@post_routes.post("/{post_id}/create-delete-like")
+async def create_delete_like(post_id: int, Authorize: AuthJWT = Depends()):
+    try:
+        Authorize.jwt_required()
+    except Exception as e:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    email = Authorize.get_jwt_subject()
+    user = session.query(User).filter(User.email == email).first()
+
     post_like = session.query(PostLike).filter(PostLike.post_id == post_id).first()
+
     if post_like is None:
-        new_post_like = PostLike(**post.model_dump(), post_id=post_id)
+        new_post_like = PostLike(author_id=user.id, post_id=post_id)
         session.add(new_post_like)
         session.commit()
-        
+        return {"message": "Post liked successfully"}
+
     session.delete(post_like)
     session.commit()
+
+    return {"message": "Post unliked successfully"}
+
+
+@post_routes.post("comment/{comment_id}/create-delete-like")
+async def create_delete_comment_like(comment_id: int, Authorize: AuthJWT = Depends()):
+    try:
+        Authorize.jwt_required()
+    except Exception as e:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    email = Authorize.get_jwt_subject()
+    user = session.query(User).filter(User.email == email).first()
+
+    comment_like = (
+        session.query(CommentLike).filter(CommentLike.comment_id == comment_id).first()
+    )
+
+    if comment_like is None:
+        new_comment_like = CommentLike(author_id=user.id, comment_id=comment_id)
+        session.add(new_comment_like)
+        session.commit()
+        return {"message": "Comment liked successfully"}
+
+    session.delete(comment_like)
+    session.commit()
+
+    return {"message": "Comment unliked successfully"}
